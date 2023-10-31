@@ -233,6 +233,7 @@ uint16_t const* tud_descriptor_string_cb(uint8_t index, uint16_t langid)
       i++;
       _desc_str[1+i++] = ' ';
       _desc_str[1+i] = '0' + enumeratorIndex++;
+      chr_count += 2;
     }
   }
 
