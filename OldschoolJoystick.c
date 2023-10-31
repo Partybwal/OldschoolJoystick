@@ -23,13 +23,14 @@
  *
  */
 
-#include <stdlib.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
+
+#include "hardware/gpio.h"
 
 #include "bsp/board.h"
 #include "tusb.h"
-
 #include "usb_descriptors.h"
 
 //--------------------------------------------------------------------+
@@ -47,19 +48,81 @@ enum  {
   BLINK_SUSPENDED = 2500,
 };
 
+
 static uint32_t blink_interval_ms = BLINK_NOT_MOUNTED;
 
 void led_blinking_task(void);
 void hid_task(void);
 
+void setup_io() {
+    uint input_mask = 0xFFFFFFFF;
+    input_mask &= ~(1 << 0); // GP0 is output
+    input_mask &= ~(1 << 1); // GP1 is output
+    input_mask &= ~(1 << 25); // GP25 is output
+
+    // gpio_init_mask(input_mask);
+
+    for (uint8_t i = 2; i < 32; i++) {
+      switch(i) {
+        case 23:
+        case 24:
+        case 25:
+            break;
+        
+        default:
+            gpio_init(i);
+            gpio_set_input_enabled(i, true);
+            gpio_pull_up(i);
+            break;
+      }
+    }
+
+    gpio_set_function(0, GPIO_FUNC_UART);
+    gpio_set_function(1, GPIO_FUNC_UART);
+}
+
+// This buffer contains two values, the first one is the last read values from the pins and
+// the second one is the last value sent to the USB host.
+uint32_t button_buffer[3] = {0, 0, 0};
+
+void read_joysticks() {
+    uint32_t raw_values = gpio_get_all();
+    button_buffer[2] = raw_values;
+
+    raw_values = raw_values >> 2;
+
+    uint8_t joys[4];
+    joys[0]  = (uint8_t)(raw_values & 63) ^ 63; // GPIO 2-7
+    raw_values = raw_values >> 6;
+    joys[1] = (uint8_t)(raw_values & 63) ^ 63;  // GPIO 8-13
+    raw_values = raw_values >> 6;
+    joys[2] = (uint8_t)(raw_values & 63) ^ 63;  // GPIO 14-19
+    raw_values = raw_values >> 6;
+
+    joys[3]  = (uint8_t)(raw_values & 7); // GPIO 20-22
+    raw_values = raw_values >> 3;
+    joys[3] |= (uint8_t)(raw_values & (7 << 3)); // GPIO 26-28
+    joys[3] = joys[3] ^ 63;
+
+    uint32_t tmp = 0;
+    for (uint8_t i = 0; i < 4; i++) {
+      tmp = tmp << 8;
+      tmp |= joys[i];
+    }
+
+    button_buffer[0] = tmp;
+}
+
 /*------------- MAIN -------------*/
 int main(void)
 {
   board_init();
+  setup_io();
   tusb_init();
 
   while (1)
   {
+    read_joysticks();
     tud_task(); // tinyusb device task
     led_blinking_task();
 
@@ -102,27 +165,8 @@ void tud_resume_cb(void)
 // USB HID
 //--------------------------------------------------------------------+
 
-static void send_hid_report(uint8_t report_id, uint32_t btn)
+static void send_hid_report(uint8_t report_id)
 {
-  static hid_gamepad_report_t lastReport[] =
-  {
-    {
-    .x   = 0, .y = 0, .z = 0, .rz = 0, .rx = 0, .ry = 0,
-    .hat = 0, .buttons = 0
-    },
-    {
-    .x   = 0, .y = 0, .z = 0, .rz = 0, .rx = 0, .ry = 0,
-    .hat = 0, .buttons = 0
-    },
-    {
-    .x   = 0, .y = 0, .z = 0, .rz = 0, .rx = 0, .ry = 0,
-    .hat = 0, .buttons = 0
-    },
-    {
-    .x   = 0, .y = 0, .z = 0, .rz = 0, .rx = 0, .ry = 0,
-    .hat = 0, .buttons = 0
-    }
-  };
 
   // skip if hid is not ready yet
   if ( !tud_hid_ready() ) return;
@@ -133,6 +177,41 @@ static void send_hid_report(uint8_t report_id, uint32_t btn)
     .hat = 0, .buttons = 0
   };
 
+  uint8_t joy =       (button_buffer[0] >> ((report_id-1) * 8)) & 0xff;
+  uint8_t last_send = (button_buffer[1] >> ((report_id-1) * 8)) & 0xff;
+
+  if (joy != last_send) {
+    // report.buttons = joy;
+    
+    if (joy & 0x1) {
+      report.x = INT8_MIN; // left = GPIO (report_id-1)*8 + 2
+    } else if (joy & 0x2) {
+      report.x = INT8_MAX; // right = GPIO (report_id-1)*8 + 3
+    } else {
+      report.x = 0;
+    }
+
+    if (joy & 0x4) {
+      report.y = INT8_MIN; // up = GPIO (report_id-1)*8 + 4
+    } else if (joy & 0x8) {
+      report.y = INT8_MAX; // down = GPIO (report_id-1)*8 + 5
+    } else {
+      report.y = 0;
+    }
+
+    report.buttons = (joy >> 4) & 0x3; // GPIO (report_id-1)*8 + 6,7
+    report.buttons = button_buffer[2];
+
+    tud_hid_report(report_id, &report, sizeof(report));
+    button_buffer[1] &= ~(0xff << ((report_id-1) * 8));
+    button_buffer[1] |= (joy << ((report_id-1) * 8));
+  } else {
+    if (report_id < REPORT_ID_COUNT) {
+      send_hid_report(report_id+1);
+    }
+  }
+
+#if 0
   if ( btn ) //upBtn )
   switch (report_id)
   {
@@ -162,6 +241,7 @@ static void send_hid_report(uint8_t report_id, uint32_t btn)
     tud_hid_report(report_id, &report, sizeof(report));
     lastReport[report_id-1] = report;
   }
+#endif
 }
 
 // Every 10ms, we will sent 1 report for each HID profile (keyboard, mouse etc ..)
@@ -186,7 +266,7 @@ void hid_task(void)
   }else
   {
     // Send the 1st of report chain, the rest will be sent by tud_hid_report_complete_cb()
-    send_hid_report(REPORT_ID_GAMEPAD_1, btn);
+    send_hid_report(REPORT_ID_GAMEPAD_1);
   }
 }
 
@@ -202,7 +282,7 @@ void tud_hid_report_complete_cb(uint8_t instance, uint8_t const* report, uint16_
 
   if (next_report_id < REPORT_ID_COUNT)
   {
-    send_hid_report(next_report_id, board_button_read());
+    send_hid_report(next_report_id);
   }
 }
 
