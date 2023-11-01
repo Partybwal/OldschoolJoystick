@@ -27,11 +27,21 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "pico.h"
+#include "pico/stdio_semihosting.h"
 #include "hardware/gpio.h"
 
 #include "bsp/board.h"
 #include "tusb.h"
 #include "usb_descriptors.h"
+
+#define ENABLE_SEMIHOSTING 0
+
+#if ENABLE_SEMIHOSTING == 1
+  #define printf(...) printf(__VA_ARGS__)
+#else
+  #define printf(...)
+#endif
 
 //--------------------------------------------------------------------+
 // MACRO CONSTANT TYPEDEF PROTYPES
@@ -117,8 +127,16 @@ void read_joysticks() {
 int main(void)
 {
   board_init();
+
+#if ENABLE_SEMIHOSTING == 1
+  stdio_semihosting_init();
+  stdio_set_translate_crlf(&stdio_semihosting, false);
+#endif
+
   setup_io();
   tusb_init();
+
+  printf("Oldschool Joystick\n");
 
   while (1)
   {
@@ -182,7 +200,7 @@ static void send_hid_report(uint8_t report_id)
 
   if (joy != last_send) {
     // report.buttons = joy;
-    
+    printf("Sending report %d\n", report_id);
     if (joy & 0x1) {
       report.x = INT8_MIN; // left = GPIO (report_id-1)*8 + 2
     } else if (joy & 0x2) {

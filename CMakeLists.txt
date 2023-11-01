@@ -35,8 +35,9 @@ target_sources(OldschoolJoystick PUBLIC
 pico_set_program_name(OldschoolJoystick "OldschoolJoystick")
 pico_set_program_version(OldschoolJoystick "0.1")
 
-pico_enable_stdio_uart(OldschoolJoystick 1)
+pico_enable_stdio_uart(OldschoolJoystick 0)
 pico_enable_stdio_usb(OldschoolJoystick 0)
+pico_enable_stdio_semihosting(OldschoolJoystick 0)
 
 # Add the standard include files to the build
 target_include_directories(OldschoolJoystick PUBLIC
@@ -45,7 +46,9 @@ target_include_directories(OldschoolJoystick PUBLIC
 )
 
 # Add any user requested libraries
-target_link_libraries(OldschoolJoystick PUBLIC pico_stdlib pico_unique_id tinyusb_device tinyusb_board)
+target_link_libraries(OldschoolJoystick PUBLIC 
+pico_stdlib pico_stdio_semihosting 
+pico_unique_id tinyusb_device tinyusb_board)
 
 pico_add_extra_outputs(OldschoolJoystick)
 
