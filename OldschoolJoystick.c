@@ -71,7 +71,7 @@ void setup_io() {
         
         default:
             gpio_init(i);
-            gpio_set_input_enabled(i, true);
+            gpio_set_dir(i, GPIO_IN);
             gpio_pull_up(i);
             break;
       }
