@@ -29,6 +29,7 @@
 
 #include "pico.h"
 #include "pico/stdio_semihosting.h"
+#include "pico/multicore.h"
 #include "hardware/gpio.h"
 
 #include "bsp/board.h"
@@ -123,6 +124,14 @@ void read_joysticks() {
     button_buffer[0] = tmp;
 }
 
+void read_task() {
+    while (1) {
+      read_joysticks();
+      sleep_ms(1);
+      led_blinking_task();
+    }
+}
+
 /*------------- MAIN -------------*/
 int main(void)
 {
@@ -138,12 +147,12 @@ int main(void)
 
   printf("Oldschool Joystick\n");
 
+  multicore_reset_core1();
+  multicore_launch_core1(read_task);
+
   while (1)
   {
-    read_joysticks();
     tud_task(); // tinyusb device task
-    led_blinking_task();
-
     hid_task();
   }
 }
