@@ -198,7 +198,7 @@ static void send_hid_report(uint8_t report_id)
   uint8_t joy =       (button_buffer[0] >> ((report_id-1) * 8)) & 0xff;
   uint8_t last_send = (button_buffer[1] >> ((report_id-1) * 8)) & 0xff;
 
-  if (joy != last_send) {
+  if (joy || joy != last_send) {
     // report.buttons = joy;
     printf("Sending report %d\n", report_id);
     if (joy & 0x1) {
