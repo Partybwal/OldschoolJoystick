@@ -222,7 +222,7 @@ static void send_hid_report(uint8_t report_id)
 
     tud_hid_report(report_id, &report, sizeof(report));
     button_buffer[1] &= ~(0xff << ((report_id-1) * 8));
-    button_buffer[1] |= (joy << ((report_id-1) * 8));
+    button_buffer[1] |=  (joy << ((report_id-1) * 8));
   } else {
     if (report_id < REPORT_ID_COUNT) {
       send_hid_report(report_id+1);
