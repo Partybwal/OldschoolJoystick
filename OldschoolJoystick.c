@@ -218,7 +218,6 @@ static void send_hid_report(uint8_t report_id)
     }
 
     report.buttons = (joy >> 4) & 0x3; // GPIO (report_id-1)*8 + 6,7
-    report.buttons = button_buffer[2];
 
     tud_hid_report(report_id, &report, sizeof(report));
     button_buffer[1] &= ~(0xff << ((report_id-1) * 8));
