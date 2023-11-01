@@ -47,7 +47,8 @@ target_include_directories(OldschoolJoystick PUBLIC
 
 # Add any user requested libraries
 target_link_libraries(OldschoolJoystick PUBLIC 
-pico_stdlib pico_stdio_semihosting 
+pico_stdlib pico_stdio_semihosting
+pico_multicore
 pico_unique_id tinyusb_device tinyusb_board)
 
 pico_add_extra_outputs(OldschoolJoystick)
