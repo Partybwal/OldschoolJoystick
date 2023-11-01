@@ -282,10 +282,8 @@ void hid_task(void)
   if ( board_millis() - start_ms < interval_ms) return; // not enough time
   start_ms += interval_ms;
 
-  uint32_t const btn = board_button_read();
-
   // Remote wakeup
-  if ( tud_suspended() && btn )
+  if ( tud_suspended() && button_buffer[0] )
   {
     // Wake up host if we are in suspend mode
     // and REMOTE_WAKEUP feature is enabled by host
